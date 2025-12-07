@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Open Qt Designer",
+      "type": "process",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\pyside6-designer.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Generate ui_main.py",
+      "type": "process",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\pyside6-uic.exe",
+      "args": [
+        "main.ui",
+        "-o",
+        "ui_main.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
