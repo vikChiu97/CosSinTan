@@ -13,6 +13,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from ui_main import Ui_MainWindow  # generated from main.ui
+from baseline import Baseline      # <- our baseline module
 
 
 class MainWindow(QMainWindow):
@@ -30,15 +31,18 @@ class MainWindow(QMainWindow):
         self.fileLabel = self.ui.fileLabel
         self.plotWidget = self.ui.plotWidget
 
-        # New line edits for labels and title
+        # Line edits for labels and title
         self.xAxisLine = self.ui.xAxisLine
         self.yAxisLine = self.ui.yAxisLine
         self.titleLine = self.ui.titleLine
         self.updateButton = self.ui.updateButton
 
+        # Baseline dropdown
+        self.baselineBox = self.ui.baselineBox
+
         # Wire up buttons
         self.openButton.clicked.connect(self.open_file)
-        self.updateButton.clicked.connect(self.update_plot_labels)
+        self.updateButton.clicked.connect(self.update_plot_and_baseline)
 
         # Set up matplotlib figure inside plotWidget
         self.figure = Figure(figsize=(5, 4))
@@ -90,9 +94,12 @@ class MainWindow(QMainWindow):
             return
 
         self.fileLabel.setText(file_path)
-        self.plot_first_two_columns()
+        self.plot_first_two_columns_raw()
 
-    def plot_first_two_columns(self):
+    def plot_first_two_columns_raw(self):
+        """
+        Initial plot when file is loaded: just raw data, no baseline.
+        """
         col_x = self.df.columns[0]
         col_y = self.df.columns[1]
 
@@ -100,7 +107,7 @@ class MainWindow(QMainWindow):
         y = self.df[col_y]
 
         self.ax.clear()
-        self.ax.plot(x, y, marker="o")
+        self.ax.plot(x, y)
 
         default_x_label = str(col_x)
         default_y_label = str(col_y)
@@ -119,25 +126,72 @@ class MainWindow(QMainWindow):
 
         self.canvas.draw()
 
-    def update_plot_labels(self):
+    def update_plot_and_baseline(self):
+        """
+        Called when Update is pressed.
+        Uses:
+          - current baseline method from dropdown
+          - current label/title texts from line edits
+        Replots the first two columns with baseline correction applied.
+        """
         if self.df is None:
             QMessageBox.warning(
                 self,
                 "No data loaded",
-                "Please load a file before updating plot labels.",
+                "Please load a file before updating the plot.",
             )
             return
 
-        x_label = self.xAxisLine.text().strip()
-        y_label = self.yAxisLine.text().strip()
-        title = self.titleLine.text().strip()
+        # Get data
+        col_x = self.df.columns[0]
+        col_y = self.df.columns[1]
+        x = self.df[col_x].values
+        y = self.df[col_y].values
 
-        if x_label:
-            self.ax.set_xlabel(x_label)
-        if y_label:
-            self.ax.set_ylabel(y_label)
-        if title:
-            self.ax.set_title(title)
+        # Get baseline method from dropdown
+        method_text = self.baselineBox.currentText() or "None"
+
+        # Decide labels/title: if user leaves them blank, fall back to column names
+        x_label = self.xAxisLine.text().strip() or str(col_x)
+        y_label = self.yAxisLine.text().strip() or str(col_y)
+        title = self.titleLine.text().strip() or f"{col_x} vs {col_y}"
+
+        # Apply baseline if needed
+        method_norm = (method_text or "").strip().lower()
+        # Normalize possible en-dash in "Savitzky–Golay"
+        method_norm = method_norm.replace("–", "-")
+
+        try:
+            if method_norm not in ("none", ""):
+                x_vals, y_corr, baseline = Baseline.apply(x, y, method=method_text)
+            else:
+                # No baseline: baseline is zeros, corrected = original
+                baseline = None
+                x_vals = x
+                y_corr = y
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Baseline error",
+                f"Failed to apply baseline method '{method_text}':\n{e}",
+            )
+            # Graceful fallback: just show original
+            baseline = None
+            x_vals = x
+            y_corr = y
+
+        # Replot
+        self.ax.clear()
+        self.ax.plot(x_vals, y_corr, label="Signal")
+
+        if baseline is not None:
+            self.ax.plot(x_vals, baseline, linestyle="--", alpha=0.6, label="Baseline")
+            self.ax.legend()
+
+        self.ax.set_xlabel(x_label)
+        self.ax.set_ylabel(y_label)
+        self.ax.set_title(title)
+        self.ax.grid(True)
 
         self.canvas.draw_idle()
 

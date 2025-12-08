@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1010</width>
-    <height>581</height>
+    <width>1162</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <rect>
       <x>30</x>
       <y>10</y>
-      <width>691</width>
+      <width>591</width>
       <height>491</height>
      </rect>
     </property>
@@ -32,10 +32,10 @@
    <widget class="QWidget" name="verticalLayoutWidget_2">
     <property name="geometry">
      <rect>
-      <x>750</x>
-      <y>20</y>
+      <x>900</x>
+      <y>10</y>
       <width>251</width>
-      <height>340</height>
+      <height>229</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -83,14 +83,73 @@
      <item>
       <widget class="QLineEdit" name="titleLine"/>
      </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="verticalLayoutWidget_3">
+    <property name="geometry">
+     <rect>
+      <x>640</x>
+      <y>10</y>
+      <width>251</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout_3">
      <item>
-      <widget class="QPushButton" name="updateButton">
+      <widget class="QLabel" name="baselineLabel">
        <property name="text">
-        <string>Update</string>
+        <string>Baseline Correction</string>
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QComboBox" name="baselineBox">
+       <item>
+        <property name="text">
+         <string>None</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>airPLS</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Rubber Band</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Polynomial</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Piecewise Spline</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Savitzky–Golay</string>
+        </property>
+       </item>
+      </widget>
+     </item>
     </layout>
+   </widget>
+   <widget class="QPushButton" name="updateButton">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>630</y>
+      <width>249</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Update</string>
+    </property>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -98,7 +157,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1010</width>
+     <width>1162</width>
      <height>33</height>
     </rect>
    </property>
