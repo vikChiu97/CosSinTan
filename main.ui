@@ -412,6 +412,59 @@
      </item>
     </layout>
    </widget>
+   <widget class="QWidget" name="verticalLayoutWidget_4">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>10</y>
+      <width>181</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout_4">
+     <item>
+      <widget class="QLabel" name="normalizationLabel">
+       <property name="text">
+        <string>Normalization</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="normalizationComboBox">
+       <item>
+        <property name="text">
+         <string>None</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Min-Max</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Z-Score</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>L1</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>L2</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Standard Normal Variate</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+    </layout>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

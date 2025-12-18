@@ -144,10 +144,14 @@ class Baseline:
 
             # Update weights: only negative residuals get weight
             w[:] = 0.0
-            w[d < 0] = np.exp(i * np.abs(d[d < 0]) / dssn)
+            exp_arg = i * np.abs(d[d < 0]) / dssn
+            # Guard against overflow for large i/lambda or tiny dssn
+            exp_arg = np.clip(exp_arg, 0.0, 50.0)
+            w[d < 0] = np.exp(exp_arg)
 
             # Endpoint boosting (helps edge behavior)
-            w0 = np.exp(i * np.max(np.abs(d[d < 0])) / dssn)
+            w0_arg = i * np.max(np.abs(d[d < 0])) / dssn
+            w0 = float(np.exp(min(50.0, w0_arg)))
             w[0] = w0
             w[-1] = w0
 
@@ -164,10 +168,26 @@ class Baseline:
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
 
+        if x.size < 2:
+            return y.copy()
+
         # Ensure x is increasing
         order = np.argsort(x)
-        x_sorted = x[order]
-        y_sorted = y[order]
+        x_sorted_full = x[order]
+        y_sorted_full = y[order]
+
+        # Handle duplicate x values (np.interp requires increasing xp with no duplicates).
+        # For a "lower envelope" baseline, keeping the minimum y per x is the safest choice.
+        x_sorted = x_sorted_full
+        y_sorted = y_sorted_full
+        if np.any(np.diff(x_sorted) == 0):
+            uniq_x, inv = np.unique(x_sorted, return_inverse=True)
+            y_min = np.full(uniq_x.shape, np.inf, dtype=float)
+            np.minimum.at(y_min, inv, y_sorted)
+            x_sorted = uniq_x
+            y_sorted = y_min
+            if x_sorted.size < 2:
+                return y.copy()
 
         # Compute lower hull indices
         hull = [0, 1]
@@ -185,7 +205,12 @@ class Baseline:
                     break
 
         hull = np.array(hull, dtype=int)
-        baseline_sorted = np.interp(x_sorted, x_sorted[hull], y_sorted[hull])
+        baseline_unique = np.interp(x_sorted, x_sorted[hull], y_sorted[hull])
+        baseline_sorted = (
+            np.interp(x_sorted_full, x_sorted, baseline_unique)
+            if baseline_unique.size != x_sorted_full.size
+            else baseline_unique
+        )
 
         # Undo sorting
         baseline = np.empty_like(baseline_sorted)

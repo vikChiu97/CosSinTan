@@ -265,6 +265,28 @@ class Ui_MainWindow(object):
 
         self.formLayout_3.setWidget(2, QFormLayout.ItemRole.FieldRole, self.titleLine)
 
+        self.verticalLayoutWidget_4 = QWidget(self.centralwidget)
+        self.verticalLayoutWidget_4.setObjectName(u"verticalLayoutWidget_4")
+        self.verticalLayoutWidget_4.setGeometry(QRect(910, 10, 181, 51))
+        self.verticalLayout_4 = QVBoxLayout(self.verticalLayoutWidget_4)
+        self.verticalLayout_4.setObjectName(u"verticalLayout_4")
+        self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
+        self.normalizationLabel = QLabel(self.verticalLayoutWidget_4)
+        self.normalizationLabel.setObjectName(u"normalizationLabel")
+
+        self.verticalLayout_4.addWidget(self.normalizationLabel)
+
+        self.normalizationComboBox = QComboBox(self.verticalLayoutWidget_4)
+        self.normalizationComboBox.addItem("")
+        self.normalizationComboBox.addItem("")
+        self.normalizationComboBox.addItem("")
+        self.normalizationComboBox.addItem("")
+        self.normalizationComboBox.addItem("")
+        self.normalizationComboBox.addItem("")
+        self.normalizationComboBox.setObjectName(u"normalizationComboBox")
+
+        self.verticalLayout_4.addWidget(self.normalizationComboBox)
+
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
@@ -310,5 +332,13 @@ class Ui_MainWindow(object):
         self.xAxisLabel.setText(QCoreApplication.translate("MainWindow", u"X Axis Label", None))
         self.yAxisLabel.setText(QCoreApplication.translate("MainWindow", u"Y Axis Label", None))
         self.titleLabel.setText(QCoreApplication.translate("MainWindow", u"Title", None))
+        self.normalizationLabel.setText(QCoreApplication.translate("MainWindow", u"Normalization", None))
+        self.normalizationComboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"None", None))
+        self.normalizationComboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"Min-Max", None))
+        self.normalizationComboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"Z-Score", None))
+        self.normalizationComboBox.setItemText(3, QCoreApplication.translate("MainWindow", u"L1", None))
+        self.normalizationComboBox.setItemText(4, QCoreApplication.translate("MainWindow", u"L2", None))
+        self.normalizationComboBox.setItemText(5, QCoreApplication.translate("MainWindow", u"Standard Normal Variate", None))
+
     # retranslateUi
 

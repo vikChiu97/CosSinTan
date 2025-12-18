@@ -1,5 +1,6 @@
 import sys
 import pandas as pd
+import numpy as np
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -14,6 +15,7 @@ from matplotlib.figure import Figure
 
 from ui_main import Ui_MainWindow
 from baseline import Baseline
+from normalization import Normalization
 
 
 class MainWindow(QMainWindow):
@@ -37,6 +39,9 @@ class MainWindow(QMainWindow):
 
         self.baselineBox = self.ui.baselineBox
         self.tabWidget = self.ui.tabWidget
+
+        # NEW: normalization dropdown
+        self.normalizationComboBox = self.ui.normalizationComboBox
 
         # airPLS controls
         self.airLambdaSpinBox = self.ui.airLambdaSpinBox
@@ -65,13 +70,11 @@ class MainWindow(QMainWindow):
         self.piecewiseDegreeSlider.setValue(3)
 
         # Savitzky: enforce odd window length via main.py
-        self.savitzkyWinLenSpinBox.setValue(51)          # must be odd
+        self.savitzkyWinLenSpinBox.setValue(51)  # must be odd
         self.savitzkyPolyorderSlider.setValue(3)
 
         self._fixing_savgol_winlen = False
         self.savitzkyWinLenSpinBox.valueChanged.connect(self._enforce_odd_savgol_winlen)
-
-        # Optional: keep polyorder < window_length (prevents Baseline.savgol auto-clamping surprises)
         self.savitzkyPolyorderSlider.valueChanged.connect(self._clamp_savgol_polyorder)
 
         # ---- Matplotlib canvas ----
@@ -88,7 +91,7 @@ class MainWindow(QMainWindow):
 
         # ---- Signals ----
         self.openButton.clicked.connect(self.open_file)
-        self.updateButton.clicked.connect(self.update_plot_and_baseline)
+        self.updateButton.clicked.connect(self.update_plot_and_processing)
 
         # Optional UX: when dropdown changes, switch to the right tab
         self.baselineBox.currentIndexChanged.connect(self._sync_tab_to_baseline)
@@ -96,15 +99,25 @@ class MainWindow(QMainWindow):
         # sync once at startup
         self._sync_tab_to_baseline()
 
+    # ---------- Small string normalizer ----------
+    @staticmethod
+    def _norm_name(s: str) -> str:
+        s = (s or "").strip().lower()
+        return s.replace("–", "-").replace("—", "-")
+
     # ---------- UX helpers ----------
     def _sync_tab_to_baseline(self):
         """
         Make the tab follow the baseline dropdown.
-        Assumes tab order: airPLS, Polynomial, Piecewise, Savitzky-Golay
-        (from your latest ui_main.py snippet).
+        Assumes tab order: airPLS, Polynomial, Piecewise, Savitzky-Golay.
         """
-        name = (self.baselineBox.currentText() or "").strip().lower()
-        name = name.replace("–", "-").replace("—", "-")
+        name = self._norm_name(self.baselineBox.currentText())
+
+        # Methods with no extra parameters: disable the settings tabs to avoid confusion.
+        if name in ("none", "", "rubber band", "rubberband"):
+            self.tabWidget.setEnabled(False)
+            return
+        self.tabWidget.setEnabled(True)
 
         if name == "airpls":
             self.tabWidget.setCurrentIndex(0)
@@ -116,10 +129,6 @@ class MainWindow(QMainWindow):
             self.tabWidget.setCurrentIndex(3)
 
     def _enforce_odd_savgol_winlen(self, v: int):
-        """
-        If user types an even value, snap to the next odd.
-        This avoids modal errors and ensures always-valid input.
-        """
         if self._fixing_savgol_winlen:
             return
         if v % 2 == 0:
@@ -129,17 +138,10 @@ class MainWindow(QMainWindow):
         self._clamp_savgol_polyorder()
 
     def _clamp_savgol_polyorder(self):
-        """
-        Keep polyorder < window_length. Your Baseline.savgol will clamp anyway,
-        but this keeps the UI honest.
-        """
         win = int(self.savitzkyWinLenSpinBox.value())
         current = int(self.savitzkyPolyorderSlider.value())
-        max_allowed = max(1, win - 1)
-
         if current >= win:
-            # snap down to win-1
-            self.savitzkyPolyorderSlider.setValue(max_allowed)
+            self.savitzkyPolyorderSlider.setValue(max(1, win - 1))
 
     # ---------- File loading ----------
     def open_file(self):
@@ -195,8 +197,53 @@ class MainWindow(QMainWindow):
 
         self.canvas.draw_idle()
 
+    # ---------- Normalization helper (apply same constants to baseline overlay) ----------
+    def _apply_norm_with_info(self, y, norm_name: str, info: dict):
+        y = np.asarray(y, dtype=float)
+        eps = 1e-12
+        n = self._norm_name(norm_name)
+
+        if n in ("none", ""):
+            return y
+
+        if n in ("min-max", "minmax", "min max"):
+            denom = float(info.get("denom", 0.0))
+            y_min = float(info.get("min", 0.0))
+            if not np.isfinite(denom) or abs(denom) < eps:
+                return np.zeros_like(y, dtype=float)
+            return (y - y_min) / denom
+
+        if n in ("z-score", "zscore", "z score", "standardize", "standardization"):
+            mu = float(info.get("mean", 0.0))
+            sigma = float(info.get("std", 0.0))
+            if not np.isfinite(sigma) or sigma < eps:
+                return np.zeros_like(y, dtype=float)
+            return (y - mu) / sigma
+
+        if n in ("l1", "l1 norm", "l1-normalize", "l1 normalize"):
+            l1 = float(info.get("l1", 0.0))
+            if not np.isfinite(l1) or l1 < eps:
+                return np.zeros_like(y, dtype=float)
+            return y / l1
+
+        if n in ("l2", "l2 norm", "l2-normalize", "l2 normalize"):
+            l2 = float(info.get("l2", 0.0))
+            if not np.isfinite(l2) or l2 < eps:
+                return np.zeros_like(y, dtype=float)
+            return y / l2
+
+        if n in ("standard normal variate", "snv"):
+            mu = float(info.get("mean", 0.0))
+            sigma = float(info.get("std", 0.0))
+            if not np.isfinite(sigma) or sigma < eps:
+                return np.zeros_like(y, dtype=float)
+            return (y - mu) / sigma
+
+        # Fallback: if a new method name slips in, just return unchanged
+        return y
+
     # ---------- Update plot ----------
-    def update_plot_and_baseline(self):
+    def update_plot_and_processing(self):
         if self.df is None:
             QMessageBox.warning(self, "No data loaded", "Please load a file before updating the plot.")
             return
@@ -206,28 +253,33 @@ class MainWindow(QMainWindow):
         x = self.df[col_x].values
         y = self.df[col_y].values
 
+        # baseline selection
         method_text = self.baselineBox.currentText() or "None"
-        method_norm = (method_text or "").strip().lower()
-        method_norm = method_norm.replace("–", "-").replace("—", "-")
+        method_norm = self._norm_name(method_text)
+
+        # normalization selection
+        norm_text = self.normalizationComboBox.currentText() or "None"
+        norm_norm = self._norm_name(norm_text)
 
         x_label = self.xAxisLine.text().strip() or str(col_x)
         y_label = self.yAxisLine.text().strip() or str(col_y)
         title = self.titleLine.text().strip() or f"{col_x} vs {col_y}"
 
+        # 1) Baseline correction
         try:
             if method_norm in ("none", ""):
-                baseline = None
                 x_vals = x
                 y_corr = y
+                baseline = None
 
             elif method_norm == "airpls":
                 lam = float(self.airLambdaSpinBox.value())
                 porder = int(self.airPorderSlider.value())
                 itermax = int(self.airItermaxSpinBox.value())
+                x_vals, y_corr, baseline = Baseline.apply(x, y, method=method_text, lam=lam, porder=porder, itermax=itermax)
 
-                x_vals, y_corr, baseline = Baseline.apply(
-                    x, y, method=method_text, lam=lam, porder=porder, itermax=itermax
-                )
+            elif method_norm in ("rubber band", "rubberband"):
+                x_vals, y_corr, baseline = Baseline.apply(x, y, method=method_text)
 
             elif method_norm == "polynomial":
                 order = int(self.polyOrderSlider.value())
@@ -241,38 +293,51 @@ class MainWindow(QMainWindow):
             elif method_norm in ("savitzky-golay", "savitzky golay", "savgol"):
                 window_length = int(self.savitzkyWinLenSpinBox.value())
                 polyorder = int(self.savitzkyPolyorderSlider.value())
-
-                # Final guard (should already be handled by UI hooks)
                 if window_length % 2 == 0:
                     window_length += 1
                 if polyorder >= window_length:
                     polyorder = window_length - 1
-
-                x_vals, y_corr, baseline = Baseline.apply(
-                    x, y, method=method_text, window_length=window_length, polyorder=polyorder
-                )
+                x_vals, y_corr, baseline = Baseline.apply(x, y, method=method_text, window_length=window_length, polyorder=polyorder)
 
             else:
                 raise ValueError(f"Unknown baseline selection: {method_text}")
 
         except Exception as e:
             QMessageBox.critical(self, "Baseline error", f"Failed to apply baseline method '{method_text}':\n{e}")
-            baseline = None
             x_vals = x
             y_corr = y
+            baseline = None
 
+        # 2) Normalization (applied AFTER baseline correction)
+        y_plot = y_corr
+        baseline_plot = baseline
+
+        try:
+            if norm_norm not in ("none", ""):
+                _, y_plot, info = Normalization.apply(x_vals, y_corr, method=norm_text)
+
+                if baseline is not None:
+                    baseline_plot = self._apply_norm_with_info(baseline, norm_text, info)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Normalization error", f"Failed to apply normalization '{norm_text}':\n{e}")
+            y_plot = y_corr
+            baseline_plot = baseline
+
+        # 3) Plot
         self.ax.clear()
-        self.ax.plot(x_vals, y_corr, label="Signal")
+        sig_label = "Signal" if norm_norm in ("none", "") else f"Signal ({norm_text})"
+        self.ax.plot(x_vals, y_plot, label=sig_label)
 
-        if baseline is not None:
-            self.ax.plot(x_vals, baseline, linestyle="--", alpha=0.6, label="Baseline")
+        if baseline_plot is not None:
+            base_label = "Baseline" if norm_norm in ("none", "") else f"Baseline ({norm_text})"
+            self.ax.plot(x_vals, baseline_plot, linestyle="--", alpha=0.6, label=base_label)
             self.ax.legend()
 
         self.ax.set_xlabel(x_label)
         self.ax.set_ylabel(y_label)
         self.ax.set_title(title)
         self.ax.grid(True)
-
         self.canvas.draw_idle()
 
 
